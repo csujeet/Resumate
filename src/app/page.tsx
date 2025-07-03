@@ -18,15 +18,16 @@ import { Input } from '@/components/ui/input';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useToast } from "@/hooks/use-toast";
 import { Separator } from "@/components/ui/separator";
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 
-import { ClipboardList, FileEdit, Wand2, UploadCloud, Download, Eye, FileText, ChevronDown, MessageSquare } from 'lucide-react';
+import { ClipboardList, FileEdit, Wand2, UploadCloud, Download, Eye, FileText, ChevronDown, MessageSquare, Mail, Loader2 } from 'lucide-react';
 
 import { analyzeJobDescription } from '@/ai/flows/analyze-job-description';
 import { suggestResumeEdits } from '@/ai/flows/suggest-resume-edits';
 import { generateTailoredResume, type GenerateTailoredResumeOutput } from '@/ai/flows/generate-tailored-resume';
+import { generateCoverLetter } from '@/ai/flows/generate-cover-letter';
 
 // This is needed for pdf.js-dist to work in the browser environment with Next.js
 if (typeof window !== 'undefined') {
@@ -44,7 +45,10 @@ export default function Home() {
   const [analysis, setAnalysis] = useState<string | null>(null);
   const [suggestions, setSuggestions] = useState<string | null>(null);
   const [tailoredResume, setTailoredResume] = useState<GenerateTailoredResumeOutput | null>(null);
+  const [coverLetter, setCoverLetter] = useState<string | null>(null);
+  const [isCoverLetterDialogOpen, setIsCoverLetterDialogOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [isGeneratingCoverLetter, setIsGeneratingCoverLetter] = useState(false);
   const [fileName, setFileName] = useState<string | null>(null);
   const { toast } = useToast();
 
@@ -114,6 +118,7 @@ export default function Home() {
     setAnalysis(null);
     setSuggestions(null);
     setTailoredResume(null);
+    setCoverLetter(null);
 
     try {
       const resumeText = await extractTextFromFile(values.resumeFile);
@@ -158,6 +163,31 @@ export default function Home() {
       setIsLoading(false);
     }
   }
+
+  const handleGenerateCoverLetter = async () => {
+    if (!tailoredResume || !form.getValues('jobDescription') || !form.getValues('resumeFile')) return;
+    setIsGeneratingCoverLetter(true);
+    setCoverLetter(null);
+    try {
+        const resumeText = await extractTextFromFile(form.getValues('resumeFile'));
+        const result = await generateCoverLetter({
+            candidateName: tailoredResume.name,
+            resumeText: resumeText,
+            jobDescription: form.getValues('jobDescription'),
+        });
+        setCoverLetter(result.coverLetter);
+        setIsCoverLetterDialogOpen(true);
+    } catch (error: any) {
+        console.error("Error generating cover letter:", error);
+        toast({
+            title: "Cover Letter Error",
+            description: "Could not generate the cover letter. Please try again.",
+            variant: "destructive",
+        });
+    } finally {
+        setIsGeneratingCoverLetter(false);
+    }
+  };
 
   const renderBulletedList = (text: string) => {
     return (
@@ -329,88 +359,98 @@ export default function Home() {
           ResuMate
         </h1>
         <p className="text-muted-foreground mt-2 text-lg">
-          Upload your resume, paste a job description, and get an AI-tailored version in seconds.
+          Your personal AI-powered career assistant.
         </p>
       </header>
       
-       <div className="text-center mb-10">
-        <p className="text-muted-foreground">
-          Don't have a resume? Let our chatbot help you build one from scratch.
-        </p>
-        <Link href="/chatbot" passHref>
-          <Button variant="outline" className="mt-4">
-              <MessageSquare className="mr-2 h-5 w-5" />
+      <Card className="mb-8 text-center">
+        <CardHeader>
+          <CardTitle className="flex items-center justify-center"><MessageSquare className="mr-2 h-6 w-6" /> Create a Resume from Scratch</CardTitle>
+          <CardDescription>Don't have a resume? Let our AI chatbot guide you through creating one.</CardDescription>
+        </CardHeader>
+        <CardFooter className="justify-center">
+          <Link href="/chatbot" passHref>
+            <Button variant="outline">
               Start with Chatbot
-          </Button>
-        </Link>
-      </div>
-      <Separator className="mb-10" />
-
-      <Form {...form}>
-        <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8">
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-            <FormField
-              control={form.control}
-              name="resumeFile"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel className="flex items-center text-lg"><FileText className="mr-2 h-5 w-5" /> Your Resume</FormLabel>
-                  <FormControl>
-                    <div 
-                      className="relative flex flex-col items-center justify-center w-full h-80 border-2 border-dashed rounded-lg cursor-pointer bg-card hover:bg-secondary transition-colors"
-                      onClick={() => fileInputRef.current?.click()}
-                    >
-                      <div className="flex flex-col items-center justify-center pt-5 pb-6 text-center">
-                        <UploadCloud className="w-10 h-10 mb-3 text-muted-foreground" />
-                        {fileName ? (
-                          <p className="font-semibold text-foreground px-2">{fileName}</p>
-                        ) : (
-                          <>
-                            <p className="mb-2 text-sm text-muted-foreground"><span className="font-semibold">Click to upload</span> or drag and drop</p>
-                            <p className="text-xs text-muted-foreground">PDF, DOCX, or TXT</p>
-                          </>
-                        )}
-                      </div>
-                      <Input
-                        ref={fileInputRef}
-                        type="file"
-                        className="hidden"
-                        accept=".pdf,.docx,.txt"
-                        onChange={handleFileChange}
-                      />
-                    </div>
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <FormField
-              control={form.control}
-              name="jobDescription"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel className="flex items-center text-lg"><ClipboardList className="mr-2 h-5 w-5" /> Job Description</FormLabel>
-                  <FormControl>
-                    <Textarea
-                      placeholder="Paste the target job description here..."
-                      className="min-h-[300px] h-80 text-base"
-                      {...field}
-                    />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-          </div>
-          
-          <div className="text-center">
-            <Button type="submit" size="lg" disabled={isLoading}>
-              <Wand2 className="mr-2 h-5 w-5" />
-              {isLoading ? 'Analyzing...' : 'Tailor My Resume'}
             </Button>
-          </div>
-        </form>
-      </Form>
+          </Link>
+        </CardFooter>
+      </Card>
+
+      <div className="text-center mb-8">
+        <h2 className="text-2xl font-bold">Or, Tailor Your Existing Resume</h2>
+        <p className="text-muted-foreground mt-1">Upload your resume and a job description to get an ATS-optimized version.</p>
+      </div>
+
+      <Card>
+        <CardContent className="p-6">
+          <Form {...form}>
+            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8">
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                <FormField
+                  control={form.control}
+                  name="resumeFile"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel className="flex items-center text-lg"><FileText className="mr-2 h-5 w-5" /> Your Resume</FormLabel>
+                      <FormControl>
+                        <div 
+                          className="relative flex flex-col items-center justify-center w-full h-80 border-2 border-dashed rounded-lg cursor-pointer bg-card hover:bg-secondary transition-colors"
+                          onClick={() => fileInputRef.current?.click()}
+                        >
+                          <div className="flex flex-col items-center justify-center pt-5 pb-6 text-center">
+                            <UploadCloud className="w-10 h-10 mb-3 text-muted-foreground" />
+                            {fileName ? (
+                              <p className="font-semibold text-foreground px-2">{fileName}</p>
+                            ) : (
+                              <>
+                                <p className="mb-2 text-sm text-muted-foreground"><span className="font-semibold">Click to upload</span> or drag and drop</p>
+                                <p className="text-xs text-muted-foreground">PDF, DOCX, or TXT</p>
+                              </>
+                            )}
+                          </div>
+                          <Input
+                            ref={fileInputRef}
+                            type="file"
+                            className="hidden"
+                            accept=".pdf,.docx,.txt"
+                            onChange={handleFileChange}
+                          />
+                        </div>
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="jobDescription"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel className="flex items-center text-lg"><ClipboardList className="mr-2 h-5 w-5" /> Job Description</FormLabel>
+                      <FormControl>
+                        <Textarea
+                          placeholder="Paste the target job description here..."
+                          className="min-h-[300px] h-80 text-base"
+                          {...field}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
+              
+              <div className="text-center">
+                <Button type="submit" size="lg" disabled={isLoading}>
+                  <Wand2 className="mr-2 h-5 w-5" />
+                  {isLoading ? 'Analyzing...' : 'Tailor My Resume'}
+                </Button>
+              </div>
+            </form>
+          </Form>
+        </CardContent>
+      </Card>
 
       {(isLoading || analysis || suggestions || tailoredResume) && (
         <div className="mt-12 space-y-8">
@@ -419,7 +459,7 @@ export default function Home() {
           <Card className="transition-all duration-500 ease-in-out border-primary border-2 shadow-lg">
             <CardHeader>
               <CardTitle className="flex items-center"><FileEdit className="mr-2 text-primary" /> Your New Tailored Resume</CardTitle>
-              <CardDescription>This is the AI-generated resume, optimized for the job description.</CardDescription>
+              <CardDescription>This is the AI-generated resume, optimized for the job description and ATS.</CardDescription>
             </CardHeader>
             <CardContent className="text-sm min-h-[100px]">
               {isLoading && !tailoredResume ? (
@@ -434,11 +474,11 @@ export default function Home() {
                 <p className="text-muted-foreground">Your tailored resume will appear here...</p>
               )}
             </CardContent>
-            <CardFooter className="gap-2">
+            <CardFooter className="flex-wrap gap-2">
                 <Dialog>
                     <DialogTrigger asChild>
                         <Button variant="outline" disabled={!tailoredResume || isLoading}>
-                            <Eye className="mr-2" /> Preview
+                            <Eye className="mr-2" /> Preview Resume
                         </Button>
                     </DialogTrigger>
                     <DialogContent className="max-w-3xl">
@@ -456,7 +496,7 @@ export default function Home() {
                 <DropdownMenu>
                     <DropdownMenuTrigger asChild>
                         <Button disabled={!tailoredResume || isLoading}>
-                            <Download className="mr-2" /> Download <ChevronDown className="ml-2 h-4 w-4" />
+                            <Download className="mr-2" /> Download Resume <ChevronDown className="ml-2 h-4 w-4" />
                         </Button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent>
@@ -464,6 +504,10 @@ export default function Home() {
                         <DropdownMenuItem onClick={handleDownloadPdf}>Download as PDF</DropdownMenuItem>
                     </DropdownMenuContent>
                 </DropdownMenu>
+                 <Button onClick={handleGenerateCoverLetter} disabled={!tailoredResume || isLoading || isGeneratingCoverLetter} variant="outline">
+                    {isGeneratingCoverLetter ? <Loader2 className="mr-2 animate-spin" /> : <Mail className="mr-2" />}
+                    {isGeneratingCoverLetter ? 'Generating...' : 'Generate Cover Letter'}
+                </Button>
             </CardFooter>
           </Card>
           
@@ -508,6 +552,23 @@ export default function Home() {
           </div>
         </div>
       )}
+
+      <Dialog open={isCoverLetterDialogOpen} onOpenChange={setIsCoverLetterDialogOpen}>
+          <DialogContent className="max-w-3xl">
+              <DialogHeader>
+              <DialogTitle>Your AI-Generated Cover Letter</DialogTitle>
+              <DialogDescription>
+                  Review your new cover letter below. You can copy the text.
+              </DialogDescription>
+              </DialogHeader>
+              <ScrollArea className="h-[60vh] rounded-md border p-4">
+                  <pre className="text-sm whitespace-pre-wrap font-sans">{coverLetter}</pre>
+              </ScrollArea>
+              <DialogFooter>
+                  <Button onClick={() => setIsCoverLetterDialogOpen(false)}>Close</Button>
+              </DialogFooter>
+          </DialogContent>
+      </Dialog>
     </main>
   );
 }

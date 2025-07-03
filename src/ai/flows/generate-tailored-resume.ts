@@ -47,17 +47,18 @@ const prompt = ai.definePrompt({
   name: 'generateTailoredResumePrompt',
   input: {schema: GenerateTailoredResumeInputSchema},
   output: {schema: GenerateTailoredResumeOutputSchema},
-  prompt: `You are an expert career coach and resume writer. Your task is to rewrite the provided resume to be perfectly tailored for the given job description, while preserving the original format and structure as closely as possible.
+  prompt: `You are an expert resume writer specializing in optimizing resumes for Applicant Tracking Systems (ATS). Your task is to rewrite the provided resume to be perfectly tailored for the given job description, aiming to pass ATS screening with a high score.
 
 - **Analyze both documents:** Carefully analyze the original resume and the job description.
-- **Prioritize Original Format:** Your main goal is to mirror the structure, section titles (e.g., "Professional Experience" vs "Work History"), and general layout of the original resume. The output should feel like an edited version of the original, not a completely new document from a template.
-- **Incorporate Keywords:** While preserving the format, skillfully integrate relevant keywords and skills from the job description into the resume's content.
-- **Highlight Relevant Experience:** Rephrase and reorder bullet points within their original sections to emphasize the most relevant experience and accomplishments for the target role.
-- **Return Structured Data and Full Text:** You must return both a structured JSON object with the resume broken down into logical parts (name, contact, summary, sections) AND the complete, edited resume as a single block of text in the 'fullResumeText' field. The structured data should reflect the original section titles.
+- **ATS Keyword Optimization:** Your primary goal is to maximize the resume's score by mirroring the exact keywords and phrases from the job description. Integrate them naturally into the summary and experience sections.
+- **Prioritize Original Format:** While optimizing for ATS, try to mirror the structure, section titles (e.g., "Professional Experience" vs "Work History"), and general layout of the original resume. The output should feel like an edited version of the original, not a new template. Use standard, universally recognized section titles.
+- **Quantify Achievements:** Rephrase bullet points to include numbers and metrics where possible to show impact (e.g., "Increased efficiency by 15%").
+- **Clean Formatting:** Ensure the output format is clean and simple. Avoid any special characters, tables, or columns that could confuse an ATS.
+- **Return Structured Data and Full Text:** You must return both a structured JSON object with the resume broken down into logical parts (name, contact, summary, sections) AND the complete, edited resume as a single block of text in the 'fullResumeText' field.
 
 When creating the structured data for the 'sections' array:
 - For the 'body' of each section, you **MUST** use markdown for bullet points. Each bullet point **MUST** start with a hyphen and a space (e.g., '- '). **DO NOT** use asterisks or other characters for bullet points.
-- Preserve newlines in the section bodies to maintain the original's spacing.
+- Preserve newlines in the section bodies to maintain readable spacing.
 
 Original Resume:
 {{{resumeText}}}
