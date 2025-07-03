@@ -214,13 +214,10 @@ export default function Home() {
                         return new Paragraph({
                             text: isBullet ? trimmedLine.substring(2) : trimmedLine,
                             bullet: isBullet ? { level: 0 } : undefined,
-                            indent: isBullet ? { left: 400 } : { left: 0 },
-                            spacing: { after: 80 },
                         });
                     }),
-                    new Paragraph({ text: "", spacing: { after: 120 } }),
                 ])
-            ].filter(Boolean),
+            ].flat().filter(Boolean),
         }],
         styles: {
             paragraphStyles: [{
@@ -252,7 +249,7 @@ export default function Home() {
     const margin = 40;
     const pageWidth = doc.internal.pageSize.getWidth();
     const pageHeight = doc.internal.pageSize.getHeight();
-    const lineHeight = 1.15;
+    const lineHeight = 1.25;
     let yPos = 50;
 
     const checkPageBreak = (spaceNeeded: number) => {
@@ -307,9 +304,9 @@ export default function Home() {
                 doc.text('\u2022', margin + 5, yPos);
             }
             doc.text(textLines, margin + textIndent, yPos);
-            yPos += (textLines.length * (10 * lineHeight)) + 2;
+            yPos += (textLines.length * (10 * lineHeight));
         });
-        yPos += 10;
+        yPos += 8;
     };
     
     if (summary) {
