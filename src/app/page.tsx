@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useRef } from 'react';
+import Link from 'next/link';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -21,7 +22,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Di
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 
-import { ClipboardList, FileEdit, Wand2, UploadCloud, Download, Eye, FileText, ChevronDown } from 'lucide-react';
+import { ClipboardList, FileEdit, Wand2, UploadCloud, Download, Eye, FileText, ChevronDown, MessageSquare } from 'lucide-react';
 
 import { analyzeJobDescription } from '@/ai/flows/analyze-job-description';
 import { suggestResumeEdits } from '@/ai/flows/suggest-resume-edits';
@@ -190,23 +191,23 @@ export default function Home() {
                     text: `${email} | ${phone}${linkedin ? ` | ${linkedin}` : ''}`,
                     alignment: AlignmentType.CENTER,
                     style: "contact",
-                    spacing: { after: 240 },
+                    spacing: { after: 200 },
                 }),
                 ...summary ? [
                     new Paragraph({
                         text: "Summary",
                         heading: HeadingLevel.HEADING_2,
                         border: { bottom: { color: "auto", space: 1, value: "single", size: 6 } },
-                        spacing: { after: 120 },
+                        spacing: { after: 100 },
                     }),
-                    new Paragraph({ text: summary, spacing: { after: 240 } }),
+                    new Paragraph({ text: summary, spacing: { after: 200 } }),
                 ] : [],
                 ...sections.flatMap(section => [
                     new Paragraph({
                         text: section.title,
                         heading: HeadingLevel.HEADING_2,
                         border: { bottom: { color: "auto", space: 1, value: "single", size: 6 } },
-                        spacing: { after: 120 },
+                        spacing: { after: 100 },
                     }),
                     ...section.body.split('\n').filter(line => line.trim() !== '').map(line => {
                         const trimmedLine = line.trim();
@@ -214,6 +215,7 @@ export default function Home() {
                         return new Paragraph({
                             text: isBullet ? trimmedLine.substring(2) : trimmedLine,
                             bullet: isBullet ? { level: 0 } : undefined,
+                            spacing: { after: 40 },
                         });
                     }),
                 ])
@@ -249,8 +251,8 @@ export default function Home() {
     const margin = 40;
     const pageWidth = doc.internal.pageSize.getWidth();
     const pageHeight = doc.internal.pageSize.getHeight();
-    const lineHeight = 1.25;
-    let yPos = 50;
+    const lineHeight = 1.2;
+    let yPos = 40;
 
     const checkPageBreak = (spaceNeeded: number) => {
         if (yPos + spaceNeeded > pageHeight - margin) {
@@ -259,7 +261,7 @@ export default function Home() {
         }
     };
 
-    doc.setFontSize(22);
+    doc.setFontSize(20);
     doc.setFont("times", "bold");
     doc.text(name, pageWidth / 2, yPos, { align: 'center' });
     yPos += 20;
@@ -276,10 +278,10 @@ export default function Home() {
         doc.setFontSize(12);
         doc.setFont("times", "bold");
         doc.text(title.toUpperCase(), margin, yPos);
-        yPos += 6;
+        yPos += 4;
         doc.setLineWidth(0.5);
         doc.line(margin, yPos, pageWidth - margin, yPos);
-        yPos += 15;
+        yPos += 12;
 
         doc.setFontSize(10);
         doc.setFont("times", "normal");
@@ -298,13 +300,13 @@ export default function Home() {
             }
 
             const textLines = doc.splitTextToSize(bulletText, pageWidth - (margin * 2) - textIndent);
-            checkPageBreak(textLines.length * (10 * lineHeight));
+            checkPageBreak(textLines.length * (10 * lineHeight) + 2);
 
             if (isBullet) {
                 doc.text('\u2022', margin + 5, yPos);
             }
             doc.text(textLines, margin + textIndent, yPos);
-            yPos += (textLines.length * (10 * lineHeight));
+            yPos += (textLines.length * (10 * lineHeight)) + 2;
         });
         yPos += 8;
     };
@@ -331,6 +333,19 @@ export default function Home() {
         </p>
       </header>
       
+       <div className="text-center mb-10">
+        <p className="text-muted-foreground">
+          Don't have a resume? Let our chatbot help you build one from scratch.
+        </p>
+        <Link href="/chatbot" passHref>
+          <Button variant="outline" className="mt-4">
+              <MessageSquare className="mr-2 h-5 w-5" />
+              Start with Chatbot
+          </Button>
+        </Link>
+      </div>
+      <Separator className="mb-10" />
+
       <Form {...form}>
         <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
