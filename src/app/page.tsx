@@ -5,6 +5,9 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import * as pdfjs from 'pdfjs-dist/build/pdf.mjs';
+import { Document as DocxDocument, Packer, Paragraph, TextRun, HeadingLevel, AlignmentType } from 'docx';
+import jsPDF from 'jspdf';
+
 
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
@@ -16,12 +19,13 @@ import { useToast } from "@/hooks/use-toast";
 import { Separator } from "@/components/ui/separator";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 
-import { ClipboardList, FileEdit, Wand2, UploadCloud, Download, Eye, FileText } from 'lucide-react';
+import { ClipboardList, FileEdit, Wand2, UploadCloud, Download, Eye, FileText, ChevronDown } from 'lucide-react';
 
 import { analyzeJobDescription } from '@/ai/flows/analyze-job-description';
 import { suggestResumeEdits } from '@/ai/flows/suggest-resume-edits';
-import { generateTailoredResume } from '@/ai/flows/generate-tailored-resume';
+import { generateTailoredResume, type GenerateTailoredResumeOutput } from '@/ai/flows/generate-tailored-resume';
 
 // This is needed for pdf.js-dist to work in the browser environment with Next.js
 if (typeof window !== 'undefined') {
@@ -38,7 +42,7 @@ const formSchema = z.object({
 export default function Home() {
   const [analysis, setAnalysis] = useState<string | null>(null);
   const [suggestions, setSuggestions] = useState<string | null>(null);
-  const [tailoredResume, setTailoredResume] = useState<string | null>(null);
+  const [tailoredResume, setTailoredResume] = useState<GenerateTailoredResumeOutput | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [fileName, setFileName] = useState<string | null>(null);
   const { toast } = useToast();
@@ -140,7 +144,7 @@ export default function Home() {
       ]);
 
       setSuggestions(suggestionsResult.suggestedEdits);
-      setTailoredResume(tailoredResumeResult.tailoredResume);
+      setTailoredResume(tailoredResumeResult);
 
     } catch (error: any) {
       console.error("Error during resume processing:", error);
@@ -168,17 +172,143 @@ export default function Home() {
     );
   };
   
-  const handleDownload = () => {
+  const handleDownloadDocx = async () => {
     if (!tailoredResume) return;
-    const blob = new Blob([tailoredResume], { type: 'text/plain;charset=utf-8' });
+
+    const { name, email, phone, linkedin, summary, sections } = tailoredResume;
+
+    const doc = new DocxDocument({
+        sections: [{
+            children: [
+                new Paragraph({
+                    text: name,
+                    heading: HeadingLevel.HEADING_1,
+                    alignment: AlignmentType.CENTER,
+                    spacing: { after: 100 },
+                }),
+                new Paragraph({
+                    text: `${email} | ${phone}${linkedin ? ` | ${linkedin}` : ''}`,
+                    alignment: AlignmentType.CENTER,
+                    style: "contact",
+                }),
+                new Paragraph({ text: "", spacing: { after: 200 } }),
+                new Paragraph({
+                    text: "Summary",
+                    heading: HeadingLevel.HEADING_2,
+                    border: { bottom: { color: "auto", space: 1, value: "single", size: 6 } },
+                    spacing: { after: 200 },
+                }),
+                new Paragraph({ text: summary, spacing: { after: 200 } }),
+                ...sections.flatMap(section => [
+                    new Paragraph({
+                        text: section.title,
+                        heading: HeadingLevel.HEADING_2,
+                        border: { bottom: { color: "auto", space: 1, value: "single", size: 6 } },
+                        spacing: { after: 200 },
+                    }),
+                    ...section.body.split('\n').filter(line => line.trim() !== '').map(line => {
+                        const isBullet = line.trim().startsWith('- ');
+                        return new Paragraph({
+                            text: isBullet ? line.trim().substring(2) : line.trim(),
+                            bullet: isBullet ? { level: 0 } : undefined,
+                            indent: isBullet ? { left: 720 } : undefined,
+                            spacing: { after: 100 },
+                        });
+                    }),
+                    new Paragraph({ text: "" }),
+                ])
+            ],
+        }],
+        styles: {
+            paragraphStyles: [{
+                id: "contact",
+                name: "Contact Info",
+                basedOn: "Normal",
+                next: "Normal",
+                run: { size: 20, font: "Calibri" },
+            }]
+        }
+    });
+
+    const blob = await Packer.toBlob(doc);
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
-    link.download = 'tailored-resume.txt';
+    link.download = 'tailored-resume.docx';
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
     URL.revokeObjectURL(url);
+  };
+
+  const handleDownloadPdf = () => {
+    if (!tailoredResume) return;
+
+    const { name, email, phone, linkedin, summary, sections } = tailoredResume;
+    const doc = new jsPDF('p', 'pt', 'a4');
+    const margin = 40;
+    const pageWidth = doc.internal.pageSize.getWidth();
+    const pageHeight = doc.internal.pageSize.getHeight();
+    let yPos = 60;
+
+    const checkPageBreak = (spaceNeeded: number) => {
+        if (yPos + spaceNeeded > pageHeight - margin) {
+            doc.addPage();
+            yPos = margin;
+        }
+    };
+
+    doc.setFontSize(24);
+    doc.setFont("times", "bold");
+    doc.text(name, pageWidth / 2, yPos, { align: 'center' });
+    yPos += 20;
+
+    doc.setFontSize(10);
+    doc.setFont("times", "normal");
+    const contactInfo = `${email} | ${phone}${linkedin ? ` | ${linkedin}` : ''}`;
+    doc.text(contactInfo, pageWidth / 2, yPos, { align: 'center' });
+    yPos += 30;
+
+    const printSection = (title: string, body: string) => {
+        checkPageBreak(40);
+        doc.setFontSize(14);
+        doc.setFont("times", "bold");
+        doc.text(title.toUpperCase(), margin, yPos);
+        yPos += 8;
+        doc.setLineWidth(0.5);
+        doc.line(margin, yPos, pageWidth - margin, yPos);
+        yPos += 18;
+
+        doc.setFontSize(11);
+        doc.setFont("times", "normal");
+
+        const lines = body.split('\n');
+        lines.forEach(line => {
+            const trimmedLine = line.trim();
+            if (trimmedLine.startsWith('- ')) {
+                const bulletText = trimmedLine.substring(2);
+                const textLines = doc.splitTextToSize(bulletText, pageWidth - (margin * 2) - 20);
+                checkPageBreak(textLines.length * 12);
+                doc.text('\u2022', margin + 10, yPos, {});
+                doc.text(textLines, margin + 25, yPos);
+                yPos += (textLines.length * 12);
+            } else if (trimmedLine) {
+                const textLines = doc.splitTextToSize(trimmedLine, pageWidth - (margin * 2));
+                checkPageBreak(textLines.length * 12);
+                doc.text(textLines, margin, yPos);
+                yPos += (textLines.length * 12);
+            }
+        });
+        yPos += 12;
+    };
+
+    printSection("Summary", summary);
+    
+    sections.forEach(section => {
+        printSection(section.title, section.body);
+    });
+
+    doc.save('tailored-resume.pdf');
   };
 
   return (
@@ -274,8 +404,8 @@ export default function Home() {
                   <Skeleton className="h-4 w-4/5" />
                   <Skeleton className="h-4 w-full" />
                 </div>
-              ) : tailoredResume ? (
-                <p className="whitespace-pre-wrap leading-relaxed line-clamp-4">{tailoredResume}</p>
+              ) : tailoredResume?.fullResumeText ? (
+                <p className="whitespace-pre-wrap leading-relaxed line-clamp-4">{tailoredResume.fullResumeText}</p>
               ) : (
                 <p className="text-muted-foreground">Your tailored resume will appear here...</p>
               )}
@@ -295,13 +425,21 @@ export default function Home() {
                         </DialogDescription>
                         </DialogHeader>
                         <ScrollArea className="h-[60vh] rounded-md border p-4">
-                            <pre className="text-sm whitespace-pre-wrap font-sans">{tailoredResume}</pre>
+                            <pre className="text-sm whitespace-pre-wrap font-sans">{tailoredResume?.fullResumeText}</pre>
                         </ScrollArea>
                     </DialogContent>
                 </Dialog>
-                <Button onClick={handleDownload} disabled={!tailoredResume || isLoading}>
-                    <Download className="mr-2" /> Download (.txt)
-                </Button>
+                <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                        <Button disabled={!tailoredResume || isLoading}>
+                            <Download className="mr-2" /> Download <ChevronDown className="ml-2 h-4 w-4" />
+                        </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent>
+                        <DropdownMenuItem onClick={handleDownloadDocx}>Download as DOCX</DropdownMenuItem>
+                        <DropdownMenuItem onClick={handleDownloadPdf}>Download as PDF</DropdownMenuItem>
+                    </DropdownMenuContent>
+                </DropdownMenu>
             </CardFooter>
           </Card>
           

@@ -18,12 +18,24 @@ const GenerateTailoredResumeInputSchema = z.object({
 });
 export type GenerateTailoredResumeInput = z.infer<typeof GenerateTailoredResumeInputSchema>;
 
+const ResumeSectionSchema = z.object({
+    title: z.string().describe("The title of the resume section (e.g., 'Work Experience', 'Education', 'Skills')."),
+    body: z.string().describe("The content of the section. Use markdown for bullet points (e.g., '- Led a team...'). Newlines will be preserved."),
+});
+
 const GenerateTailoredResumeOutputSchema = z.object({
-  tailoredResume: z
+  name: z.string().describe("The full name of the candidate."),
+  email: z.string().describe("The candidate's email address."),
+  phone: z.string().describe("The candidate's phone number."),
+  linkedin: z.string().optional().describe("A link to the candidate's LinkedIn profile."),
+  summary: z.string().describe("A professional summary or objective statement, 2-4 sentences long."),
+  sections: z.array(ResumeSectionSchema).describe("An array of resume sections, like Experience, Education, and Skills."),
+  fullResumeText: z
     .string()
-    .describe('The full, rewritten resume, tailored for the job description.'),
+    .describe('The full, rewritten resume, tailored for the job description, as a single block of well-formatted text. This is a fallback and for previewing.'),
 });
 export type GenerateTailoredResumeOutput = z.infer<typeof GenerateTailoredResumeOutputSchema>;
+
 
 export async function generateTailoredResume(
   input: GenerateTailoredResumeInput
@@ -41,7 +53,11 @@ const prompt = ai.definePrompt({
 - **Incorporate Keywords:** Integrate relevant keywords and skills from the job description into the resume naturally.
 - **Highlight Relevant Experience:** Rephrase and reorder bullet points to emphasize the most relevant experience and accomplishments for the target role.
 - **Maintain Professional Tone:** Ensure the tone is professional and the formatting is clean and readable.
-- **Return the full resume:** Do not just provide suggestions. Return the complete, edited resume text.
+- **Return Structured Data and Full Text:** You must return both a structured JSON object with the resume broken down into logical parts (name, contact, summary, sections) AND the complete, edited resume as a single block of text in the 'fullResumeText' field.
+
+When creating the structured data:
+- For the 'body' of each section, use markdown for bullet points (e.g., start lines with '- ').
+- Preserve newlines in the section bodies.
 
 Original Resume:
 {{{resumeText}}}
