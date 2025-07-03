@@ -184,27 +184,29 @@ export default function Home() {
                     text: name,
                     heading: HeadingLevel.HEADING_1,
                     alignment: AlignmentType.CENTER,
-                    spacing: { after: 100 },
+                    spacing: { after: 80 },
                 }),
                 new Paragraph({
                     text: `${email} | ${phone}${linkedin ? ` | ${linkedin}` : ''}`,
                     alignment: AlignmentType.CENTER,
                     style: "contact",
+                    spacing: { after: 240 },
                 }),
-                new Paragraph({ text: "", spacing: { after: 200 } }),
-                new Paragraph({
-                    text: "Summary",
-                    heading: HeadingLevel.HEADING_2,
-                    border: { bottom: { color: "auto", space: 1, value: "single", size: 6 } },
-                    spacing: { after: 200 },
-                }),
-                new Paragraph({ text: summary, spacing: { after: 200 } }),
+                ...summary ? [
+                    new Paragraph({
+                        text: "Summary",
+                        heading: HeadingLevel.HEADING_2,
+                        border: { bottom: { color: "auto", space: 1, value: "single", size: 6 } },
+                        spacing: { after: 120 },
+                    }),
+                    new Paragraph({ text: summary, spacing: { after: 240 } }),
+                ] : [],
                 ...sections.flatMap(section => [
                     new Paragraph({
                         text: section.title,
                         heading: HeadingLevel.HEADING_2,
                         border: { bottom: { color: "auto", space: 1, value: "single", size: 6 } },
-                        spacing: { after: 200 },
+                        spacing: { after: 120 },
                     }),
                     ...section.body.split('\n').filter(line => line.trim() !== '').map(line => {
                         const trimmedLine = line.trim();
@@ -212,12 +214,13 @@ export default function Home() {
                         return new Paragraph({
                             text: isBullet ? trimmedLine.substring(2) : trimmedLine,
                             bullet: isBullet ? { level: 0 } : undefined,
-                            indent: isBullet ? { left: 720 } : undefined,
-                            spacing: { after: 100 },
+                            indent: isBullet ? { left: 400 } : { left: 0 },
+                            spacing: { after: 80 },
                         });
                     }),
+                    new Paragraph({ text: "", spacing: { after: 120 } }),
                 ])
-            ],
+            ].filter(Boolean),
         }],
         styles: {
             paragraphStyles: [{
@@ -249,7 +252,8 @@ export default function Home() {
     const margin = 40;
     const pageWidth = doc.internal.pageSize.getWidth();
     const pageHeight = doc.internal.pageSize.getHeight();
-    let yPos = 60;
+    const lineHeight = 1.15;
+    let yPos = 50;
 
     const checkPageBreak = (spaceNeeded: number) => {
         if (yPos + spaceNeeded > pageHeight - margin) {
@@ -258,7 +262,7 @@ export default function Home() {
         }
     };
 
-    doc.setFontSize(24);
+    doc.setFontSize(22);
     doc.setFont("times", "bold");
     doc.text(name, pageWidth / 2, yPos, { align: 'center' });
     yPos += 20;
@@ -267,43 +271,50 @@ export default function Home() {
     doc.setFont("times", "normal");
     const contactInfo = `${email} | ${phone}${linkedin ? ` | ${linkedin}` : ''}`;
     doc.text(contactInfo, pageWidth / 2, yPos, { align: 'center' });
-    yPos += 30;
+    yPos += 25;
 
     const printSection = (title: string, body: string) => {
-        checkPageBreak(40);
-        doc.setFontSize(14);
+        if (!body.trim()) return;
+        checkPageBreak(30);
+        doc.setFontSize(12);
         doc.setFont("times", "bold");
         doc.text(title.toUpperCase(), margin, yPos);
-        yPos += 8;
+        yPos += 6;
         doc.setLineWidth(0.5);
         doc.line(margin, yPos, pageWidth - margin, yPos);
-        yPos += 18;
+        yPos += 15;
 
-        doc.setFontSize(11);
+        doc.setFontSize(10);
         doc.setFont("times", "normal");
 
         const lines = body.split('\n');
         lines.forEach(line => {
             const trimmedLine = line.trim();
+            if (!trimmedLine) return;
             const isBullet = trimmedLine.startsWith('- ') || trimmedLine.startsWith('* ');
+            
+            let bulletText = trimmedLine;
+            let textIndent = 0;
             if (isBullet) {
-                const bulletText = trimmedLine.substring(2);
-                const textLines = doc.splitTextToSize(bulletText, pageWidth - (margin * 2) - 20);
-                checkPageBreak(textLines.length * 12);
-                doc.text('\u2022', margin + 10, yPos, {});
-                doc.text(textLines, margin + 25, yPos);
-                yPos += (textLines.length * 12);
-            } else if (trimmedLine) {
-                const textLines = doc.splitTextToSize(trimmedLine, pageWidth - (margin * 2));
-                checkPageBreak(textLines.length * 12);
-                doc.text(textLines, margin, yPos);
-                yPos += (textLines.length * 12);
+                bulletText = trimmedLine.substring(2);
+                textIndent = 15;
             }
-        });
-        yPos += 8;
-    };
 
-    printSection("Summary", summary);
+            const textLines = doc.splitTextToSize(bulletText, pageWidth - (margin * 2) - textIndent);
+            checkPageBreak(textLines.length * (10 * lineHeight));
+
+            if (isBullet) {
+                doc.text('\u2022', margin + 5, yPos);
+            }
+            doc.text(textLines, margin + textIndent, yPos);
+            yPos += (textLines.length * (10 * lineHeight)) + 2;
+        });
+        yPos += 10;
+    };
+    
+    if (summary) {
+        printSection("Summary", summary);
+    }
     
     sections.forEach(section => {
         printSection(section.title, section.body);

@@ -47,17 +47,17 @@ const prompt = ai.definePrompt({
   name: 'generateTailoredResumePrompt',
   input: {schema: GenerateTailoredResumeInputSchema},
   output: {schema: GenerateTailoredResumeOutputSchema},
-  prompt: `You are an expert career coach and resume writer. Your task is to rewrite the provided resume to be perfectly tailored for the given job description.
+  prompt: `You are an expert career coach and resume writer. Your task is to rewrite the provided resume to be perfectly tailored for the given job description, while preserving the original format and structure as closely as possible.
 
 - **Analyze both documents:** Carefully analyze the original resume and the job description.
-- **Incorporate Keywords:** Integrate relevant keywords and skills from the job description into the resume naturally.
-- **Highlight Relevant Experience:** Rephrase and reorder bullet points to emphasize the most relevant experience and accomplishments for the target role.
-- **Maintain Professional Tone:** Ensure the tone is professional and the formatting is clean and readable.
-- **Return Structured Data and Full Text:** You must return both a structured JSON object with the resume broken down into logical parts (name, contact, summary, sections) AND the complete, edited resume as a single block of text in the 'fullResumeText' field.
+- **Prioritize Original Format:** Your main goal is to mirror the structure, section titles (e.g., "Professional Experience" vs "Work History"), and general layout of the original resume. The output should feel like an edited version of the original, not a completely new document from a template.
+- **Incorporate Keywords:** While preserving the format, skillfully integrate relevant keywords and skills from the job description into the resume's content.
+- **Highlight Relevant Experience:** Rephrase and reorder bullet points within their original sections to emphasize the most relevant experience and accomplishments for the target role.
+- **Return Structured Data and Full Text:** You must return both a structured JSON object with the resume broken down into logical parts (name, contact, summary, sections) AND the complete, edited resume as a single block of text in the 'fullResumeText' field. The structured data should reflect the original section titles.
 
 When creating the structured data for the 'sections' array:
 - For the 'body' of each section, you **MUST** use markdown for bullet points. Each bullet point **MUST** start with a hyphen and a space (e.g., '- '). **DO NOT** use asterisks or other characters for bullet points.
-- Preserve newlines in the section bodies to maintain proper spacing.
+- Preserve newlines in the section bodies to maintain the original's spacing.
 
 Original Resume:
 {{{resumeText}}}
