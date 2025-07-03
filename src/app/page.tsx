@@ -207,15 +207,15 @@ export default function Home() {
                         spacing: { after: 200 },
                     }),
                     ...section.body.split('\n').filter(line => line.trim() !== '').map(line => {
-                        const isBullet = line.trim().startsWith('- ');
+                        const trimmedLine = line.trim();
+                        const isBullet = trimmedLine.startsWith('- ') || trimmedLine.startsWith('* ');
                         return new Paragraph({
-                            text: isBullet ? line.trim().substring(2) : line.trim(),
+                            text: isBullet ? trimmedLine.substring(2) : trimmedLine,
                             bullet: isBullet ? { level: 0 } : undefined,
                             indent: isBullet ? { left: 720 } : undefined,
                             spacing: { after: 100 },
                         });
                     }),
-                    new Paragraph({ text: "" }),
                 ])
             ],
         }],
@@ -285,7 +285,8 @@ export default function Home() {
         const lines = body.split('\n');
         lines.forEach(line => {
             const trimmedLine = line.trim();
-            if (trimmedLine.startsWith('- ')) {
+            const isBullet = trimmedLine.startsWith('- ') || trimmedLine.startsWith('* ');
+            if (isBullet) {
                 const bulletText = trimmedLine.substring(2);
                 const textLines = doc.splitTextToSize(bulletText, pageWidth - (margin * 2) - 20);
                 checkPageBreak(textLines.length * 12);
@@ -299,7 +300,7 @@ export default function Home() {
                 yPos += (textLines.length * 12);
             }
         });
-        yPos += 12;
+        yPos += 8;
     };
 
     printSection("Summary", summary);

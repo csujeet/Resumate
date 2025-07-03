@@ -55,9 +55,9 @@ const prompt = ai.definePrompt({
 - **Maintain Professional Tone:** Ensure the tone is professional and the formatting is clean and readable.
 - **Return Structured Data and Full Text:** You must return both a structured JSON object with the resume broken down into logical parts (name, contact, summary, sections) AND the complete, edited resume as a single block of text in the 'fullResumeText' field.
 
-When creating the structured data:
-- For the 'body' of each section, use markdown for bullet points (e.g., start lines with '- ').
-- Preserve newlines in the section bodies.
+When creating the structured data for the 'sections' array:
+- For the 'body' of each section, you **MUST** use markdown for bullet points. Each bullet point **MUST** start with a hyphen and a space (e.g., '- '). **DO NOT** use asterisks or other characters for bullet points.
+- Preserve newlines in the section bodies to maintain proper spacing.
 
 Original Resume:
 {{{resumeText}}}
