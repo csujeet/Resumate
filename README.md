@@ -1,7 +1,7 @@
 <<<<<<< HEAD
 # Resumate
 =======
-# Firebase Studio
+#Build with Firebase Studio
 
 This is a NextJS starter in Firebase Studio.
 
