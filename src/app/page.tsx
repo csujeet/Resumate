@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import * as pdfjs from 'pdfjs-dist/build/pdf.mjs';
+import * as pdfjs from 'pdfjs-dist';
 import { Document as DocxDocument, Packer, Paragraph, TextRun, HeadingLevel, AlignmentType } from 'docx';
 import jsPDF from 'jspdf';
 
@@ -206,60 +206,111 @@ export default function Home() {
   const handleDownloadDocx = async () => {
     if (!tailoredResume) return;
 
-    const { name, email, phone, linkedin, summary, sections } = tailoredResume;
+    const { name, candidateTitle, email, phone, linkedin, address, summary, workExperience, education, otherSections } = tailoredResume;
+    
+    const docChildren: Paragraph[] = [];
 
-    const doc = new DocxDocument({
-        sections: [{
-            children: [
-                new Paragraph({
-                    text: name,
-                    heading: HeadingLevel.HEADING_1,
-                    alignment: AlignmentType.CENTER,
-                    spacing: { after: 80 },
-                }),
-                new Paragraph({
-                    text: `${email} | ${phone}${linkedin ? ` | ${linkedin}` : ''}`,
-                    alignment: AlignmentType.CENTER,
-                    style: "contact",
-                    spacing: { after: 200 },
-                }),
-                ...summary ? [
-                    new Paragraph({
-                        text: "Summary",
-                        heading: HeadingLevel.HEADING_2,
-                        border: { bottom: { color: "auto", space: 1, value: "single", size: 6 } },
-                        spacing: { after: 100 },
-                    }),
-                    new Paragraph({ text: summary, spacing: { after: 200 } }),
-                ] : [],
-                ...sections.flatMap(section => [
-                    new Paragraph({
-                        text: section.title,
-                        heading: HeadingLevel.HEADING_2,
-                        border: { bottom: { color: "auto", space: 1, value: "single", size: 6 } },
-                        spacing: { after: 100 },
-                    }),
-                    ...section.body.split('\n').filter(line => line.trim() !== '').map(line => {
-                        const trimmedLine = line.trim();
-                        const isBullet = trimmedLine.startsWith('- ') || trimmedLine.startsWith('* ');
-                        return new Paragraph({
-                            text: isBullet ? trimmedLine.substring(2) : trimmedLine,
-                            bullet: isBullet ? { level: 0 } : undefined,
-                            spacing: { after: 40 },
-                        });
-                    }),
-                ])
-            ].flat().filter(Boolean),
-        }],
-        styles: {
-            paragraphStyles: [{
-                id: "contact",
-                name: "Contact Info",
-                basedOn: "Normal",
-                next: "Normal",
-                run: { size: 20, font: "Calibri" },
-            }]
-        }
+    // Header
+    docChildren.push(new Paragraph({
+      children: [new TextRun({ text: name.toUpperCase(), bold: true, size: 48 })], // 24pt
+      alignment: AlignmentType.LEFT,
+      spacing: { after: 0 },
+    }));
+
+    if (candidateTitle) {
+      docChildren.push(new Paragraph({
+        children: [new TextRun({ text: candidateTitle.toUpperCase(), size: 22, color: "595959", characterSpacing: 2 * 20 })], // 11pt, gray, letter spacing
+        alignment: AlignmentType.LEFT,
+        spacing: { after: 120 }, // 6pt
+      }));
+    }
+
+    const contactInfo = [phone, email, linkedin, address].filter(Boolean).join(' / ');
+    docChildren.push(new Paragraph({
+      children: [new TextRun({ text: contactInfo, size: 20 })], // 10pt
+      alignment: AlignmentType.LEFT,
+      spacing: { after: 240 }, // 12pt
+    }));
+
+    const createSection = (title: string) => {
+      docChildren.push(new Paragraph({
+        children: [new TextRun({ text: title.toUpperCase(), bold: true, size: 22, color: "595959", characterSpacing: 2 * 20 })],
+        spacing: { after: 120, before: 120 },
+        border: { bottom: { color: "auto", space: 1, value: "single", size: 4 } },
+      }));
+      docChildren.push(new Paragraph({ text: "", spacing: { after: 80 }})); // Spacer after title line
+    };
+
+    // Summary Section
+    if (summary?.body) {
+      createSection(summary.title);
+      docChildren.push(new Paragraph({
+        children: [new TextRun({ text: summary.body, size: 20 })],
+      }));
+    }
+
+    // Work Experience
+    if (workExperience?.length > 0) {
+      createSection("Work Experience");
+      workExperience.forEach(job => {
+        docChildren.push(new Paragraph({
+          children: [new TextRun({ text: `${job.jobTitle} / ${job.company}`, bold: true, size: 22 })],
+          spacing: { before: 120 },
+        }));
+        docChildren.push(new Paragraph({
+          children: [new TextRun({ text: `${job.dates} / ${job.location}`, italics: true, size: 20 })],
+          spacing: { after: 60 },
+        }));
+        job.description.forEach(desc => {
+          docChildren.push(new Paragraph({
+            text: desc,
+            bullet: { level: 0 },
+            indent: { left: 720, hanging: 360 },
+            spacing: { after: 60 },
+          }));
+        });
+      });
+    }
+
+    // Education
+    if (education?.length > 0) {
+      createSection("Education");
+      education.forEach(edu => {
+        docChildren.push(new Paragraph({
+          children: [new TextRun({ text: edu.degree, bold: true, size: 22 })],
+          spacing: { before: 120 },
+        }));
+        const eduDetails = [edu.dates, edu.school, edu.location].filter(Boolean).join(' / ');
+        docChildren.push(new Paragraph({
+          children: [new TextRun({ text: eduDetails, size: 20 })],
+          spacing: { after: 60 },
+        }));
+        edu.details?.forEach(detail => {
+          docChildren.push(new Paragraph({
+            text: detail,
+            bullet: { level: 0 },
+            indent: { left: 720, hanging: 360 },
+            spacing: { after: 60 },
+          }));
+        });
+      });
+    }
+    
+    // Other Sections
+    otherSections?.forEach(section => {
+        createSection(section.title);
+        section.body.split('\n').forEach(line => {
+            docChildren.push(new Paragraph({
+                text: line.replace(/^- /, ''),
+                bullet: line.startsWith('- ') ? { level: 0 } : undefined,
+                indent: line.startsWith('- ') ? { left: 720, hanging: 360 } : undefined,
+                spacing: { after: 60 },
+            }));
+        });
+    });
+
+    const doc = new DocxDocument({ 
+        sections: [{ children: docChildren }],
     });
 
     const blob = await Packer.toBlob(doc);
@@ -276,78 +327,136 @@ export default function Home() {
   const handleDownloadPdf = () => {
     if (!tailoredResume) return;
 
-    const { name, email, phone, linkedin, summary, sections } = tailoredResume;
+    const { name, candidateTitle, email, phone, linkedin, address, summary, workExperience, education, otherSections } = tailoredResume;
     const doc = new jsPDF('p', 'pt', 'a4');
     const margin = 40;
     const pageWidth = doc.internal.pageSize.getWidth();
-    const pageHeight = doc.internal.pageSize.getHeight();
-    const lineHeight = 1.2;
     let yPos = 40;
-
+    const lineSpacing = 1.2;
+    const sectionSpacing = 20;
+    
     const checkPageBreak = (spaceNeeded: number) => {
-        if (yPos + spaceNeeded > pageHeight - margin) {
+        if (yPos + spaceNeeded > doc.internal.pageSize.getHeight() - margin) {
             doc.addPage();
             yPos = margin;
         }
     };
 
-    doc.setFontSize(20);
-    doc.setFont("times", "bold");
-    doc.text(name, pageWidth / 2, yPos, { align: 'center' });
-    yPos += 20;
+    // Header
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(24);
+    doc.text(name.toUpperCase(), margin, yPos);
+    yPos += 24;
 
+    if (candidateTitle) {
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(11);
+      doc.setTextColor(89, 89, 89);
+      doc.text(candidateTitle.toUpperCase(), margin, yPos, { charSpace: 2 });
+      yPos += 20;
+    }
+
+    const contactInfo = [phone, email, linkedin, address].filter(Boolean).join(' / ');
     doc.setFontSize(10);
-    doc.setFont("times", "normal");
-    const contactInfo = `${email} | ${phone}${linkedin ? ` | ${linkedin}` : ''}`;
-    doc.text(contactInfo, pageWidth / 2, yPos, { align: 'center' });
-    yPos += 25;
+    doc.setTextColor(0, 0, 0);
+    doc.text(contactInfo, margin, yPos);
+    yPos += sectionSpacing;
 
-    const printSection = (title: string, body: string) => {
-        if (!body.trim()) return;
+    const printSectionTitle = (title: string) => {
         checkPageBreak(30);
-        doc.setFontSize(12);
-        doc.setFont("times", "bold");
-        doc.text(title.toUpperCase(), margin, yPos);
-        yPos += 4;
+        yPos += sectionSpacing / 2;
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(11);
+        doc.setTextColor(89, 89, 89);
+        doc.text(title.toUpperCase(), margin, yPos, { charSpace: 2 });
+        yPos += 8;
         doc.setLineWidth(0.5);
         doc.line(margin, yPos, pageWidth - margin, yPos);
-        yPos += 12;
-
-        doc.setFontSize(10);
-        doc.setFont("times", "normal");
-
-        const lines = body.split('\n');
-        lines.forEach(line => {
-            const trimmedLine = line.trim();
-            if (!trimmedLine) return;
-            const isBullet = trimmedLine.startsWith('- ') || trimmedLine.startsWith('* ');
-            
-            let bulletText = trimmedLine;
-            let textIndent = 0;
-            if (isBullet) {
-                bulletText = trimmedLine.substring(2);
-                textIndent = 15;
-            }
-
-            const textLines = doc.splitTextToSize(bulletText, pageWidth - (margin * 2) - textIndent);
-            checkPageBreak(textLines.length * (10 * lineHeight) + 2);
-
-            if (isBullet) {
-                doc.text('\u2022', margin + 5, yPos);
-            }
-            doc.text(textLines, margin + textIndent, yPos);
-            yPos += (textLines.length * (10 * lineHeight)) + 2;
-        });
-        yPos += 8;
+        yPos += 15;
     };
     
-    if (summary) {
-        printSection("Summary", summary);
+    // Summary
+    if (summary?.body) {
+        printSectionTitle(summary.title);
+        doc.setFont('helvetica', 'normal');
+        doc.setFontSize(10);
+        doc.setTextColor(0, 0, 0);
+        const summaryLines = doc.splitTextToSize(summary.body, pageWidth - margin * 2);
+        checkPageBreak(summaryLines.length * 10 * lineSpacing);
+        doc.text(summaryLines, margin, yPos);
+        yPos += summaryLines.length * 10 * lineSpacing;
     }
-    
-    sections.forEach(section => {
-        printSection(section.title, section.body);
+
+    // Work Experience
+    if (workExperience?.length > 0) {
+        printSectionTitle("Work Experience");
+        workExperience.forEach(job => {
+            checkPageBreak(60);
+            doc.setFont('helvetica', 'bold');
+            doc.setFontSize(11);
+            doc.text(`${job.jobTitle} / ${job.company}`, margin, yPos);
+            yPos += 12;
+
+            doc.setFont('helvetica', 'italic');
+            doc.setFontSize(10);
+            doc.text(`${job.dates} / ${job.location}`, margin, yPos);
+            yPos += 15;
+
+            doc.setFont('helvetica', 'normal');
+            job.description.forEach(desc => {
+                const bulletPoint = `• ${desc}`;
+                const bulletLines = doc.splitTextToSize(bulletPoint, pageWidth - margin * 2 - 15);
+                checkPageBreak(bulletLines.length * 10 * lineSpacing);
+                doc.text(bulletLines, margin + 5, yPos);
+                yPos += (bulletLines.length * 10 * lineSpacing) + 2;
+            });
+            yPos += 10;
+        });
+    }
+
+    // Education
+    if (education?.length > 0) {
+        printSectionTitle("Education");
+        education.forEach(edu => {
+            checkPageBreak(40);
+            doc.setFont('helvetica', 'bold');
+            doc.setFontSize(11);
+            doc.text(edu.degree, margin, yPos);
+            yPos += 12;
+            
+            doc.setFont('helvetica', 'normal');
+            doc.setFontSize(10);
+            const eduDetails = [edu.dates, edu.school, edu.location].filter(Boolean).join(' / ');
+            doc.text(eduDetails, margin, yPos);
+            yPos += 15;
+            
+            edu.details?.forEach(detail => {
+                const bulletPoint = `• ${detail}`;
+                const bulletLines = doc.splitTextToSize(bulletPoint, pageWidth - margin * 2 - 15);
+                checkPageBreak(bulletLines.length * 10 * lineSpacing);
+                doc.text(bulletLines, margin + 5, yPos);
+                yPos += (bulletLines.length * 10 * lineSpacing) + 2;
+            });
+             yPos += 10;
+        });
+    }
+
+    // Other Sections
+    otherSections?.forEach(section => {
+        printSectionTitle(section.title);
+        doc.setFont('helvetica', 'normal');
+        doc.setFontSize(10);
+        section.body.split('\n').forEach(line => {
+            const isBullet = line.startsWith('- ');
+            const text = isBullet ? `• ${line.substring(2)}` : line;
+            const indent = isBullet ? 5 : 0;
+            const textLines = doc.splitTextToSize(text, pageWidth - margin * 2 - indent);
+            checkPageBreak(textLines.length * 10 * lineSpacing);
+            doc.text(textLines, margin + indent, yPos);
+            yPos += (textLines.length * 10 * lineSpacing) + 2;
+        });
     });
+
 
     doc.save('tailored-resume.pdf');
   };
@@ -491,6 +600,9 @@ export default function Home() {
                         <ScrollArea className="h-[60vh] rounded-md border p-4">
                             <pre className="text-sm whitespace-pre-wrap font-sans">{tailoredResume?.fullResumeText}</pre>
                         </ScrollArea>
+                        <DialogFooter>
+                            <Button onClick={() => (document.querySelector('[data-radix-dialog-default-open="true"] [aria-label="Close"]') as HTMLElement)?.click()}>Close</Button>
+                        </DialogFooter>
                     </DialogContent>
                 </Dialog>
                 <DropdownMenu>
