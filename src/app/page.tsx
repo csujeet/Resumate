@@ -47,6 +47,7 @@ export default function Home() {
   const [tailoredResume, setTailoredResume] = useState<GenerateTailoredResumeOutput | null>(null);
   const [coverLetter, setCoverLetter] = useState<string | null>(null);
   const [isCoverLetterDialogOpen, setIsCoverLetterDialogOpen] = useState(false);
+  const [isPreviewDialogOpen, setIsPreviewDialogOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [isGeneratingCoverLetter, setIsGeneratingCoverLetter] = useState(false);
   const [fileName, setFileName] = useState<string | null>(null);
@@ -584,7 +585,7 @@ export default function Home() {
               )}
             </CardContent>
             <CardFooter className="flex-wrap gap-2">
-                <Dialog>
+                <Dialog open={isPreviewDialogOpen} onOpenChange={setIsPreviewDialogOpen}>
                     <DialogTrigger asChild>
                         <Button variant="outline" disabled={!tailoredResume || isLoading}>
                             <Eye className="mr-2" /> Preview Resume
@@ -601,7 +602,7 @@ export default function Home() {
                             <pre className="text-sm whitespace-pre-wrap font-sans">{tailoredResume?.fullResumeText}</pre>
                         </ScrollArea>
                         <DialogFooter>
-                            <Button onClick={() => (document.querySelector('[data-radix-dialog-default-open="true"] [aria-label="Close"]') as HTMLElement)?.click()}>Close</Button>
+                            <Button onClick={() => setIsPreviewDialogOpen(false)}>Close</Button>
                         </DialogFooter>
                     </DialogContent>
                 </Dialog>
