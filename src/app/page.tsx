@@ -4,7 +4,7 @@ import { useState, useRef } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import pdfParse from 'pdf-parse';
+import * as pdfjs from 'pdfjs-dist';
 import mammoth from 'mammoth';
 
 import { Button } from '@/components/ui/button';
@@ -24,9 +24,9 @@ import { analyzeJobDescription } from '@/ai/flows/analyze-job-description';
 import { suggestResumeEdits } from '@/ai/flows/suggest-resume-edits';
 import { generateTailoredResume } from '@/ai/flows/generate-tailored-resume';
 
-// This is needed for pdf-parse to work in the browser environment with Next.js
+// This is needed for pdf.js-dist to work in the browser environment with Next.js
 if (typeof window !== 'undefined') {
-  (window as any).pdfjsWorker = import('pdfjs-dist/build/pdf.worker.min.mjs');
+  pdfjs.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjs.version}/pdf.worker.min.mjs`;
 }
 
 const formSchema = z.object({
@@ -69,8 +69,15 @@ export default function Home() {
       if (fileType === 'application/pdf') {
         reader.onload = async (e) => {
           try {
-            const data = await pdfParse(new Uint8Array(e.target?.result as ArrayBuffer));
-            resolve(data.text);
+            const typedArray = new Uint8Array(e.target?.result as ArrayBuffer);
+            const pdf = await pdfjs.getDocument(typedArray).promise;
+            let text = '';
+            for (let i = 1; i <= pdf.numPages; i++) {
+                const page = await pdf.getPage(i);
+                const textContent = await page.getTextContent();
+                text += textContent.items.map((item: any) => item.str).join(' ');
+            }
+            resolve(text);
           } catch (error) {
             console.error('PDF parsing error:', error);
             reject('Failed to parse PDF file. It might be corrupted or protected.');
