@@ -15,13 +15,13 @@ const MessageSchema = z.object({
   content: z.string(),
 });
 
-export const CareerChatInputSchema = z.object({
+const CareerChatInputSchema = z.object({
   history: z.array(MessageSchema).describe("The conversation history."),
   message: z.string().describe("The user's latest message."),
 });
 export type CareerChatInput = z.infer<typeof CareerChatInputSchema>;
 
-export const CareerChatOutputSchema = z.object({
+const CareerChatOutputSchema = z.object({
   response: z.string().describe("The chatbot's response."),
 });
 export type CareerChatOutput = z.infer<typeof CareerChatOutputSchema>;
