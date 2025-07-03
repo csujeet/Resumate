@@ -4,8 +4,7 @@ import { useState, useRef } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import * as pdfjs from 'pdfjs-dist';
-import mammoth from 'mammoth';
+import * as pdfjs from 'pdfjs-dist/build/pdf.mjs';
 
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
@@ -87,6 +86,7 @@ export default function Home() {
       } else if (fileType === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document') {
         reader.onload = async (e) => {
           try {
+            const mammoth = (await import('mammoth')).default;
             const result = await mammoth.extractRawText({ arrayBuffer: e.target?.result as ArrayBuffer });
             resolve(result.value);
           } catch (error) {
